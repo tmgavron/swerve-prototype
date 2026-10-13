@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Swerve</title>
+<meta name="description" content="Find someone who drives you crazy. Atlanta's worst drivers, rated by the people stuck behind them.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:ital,wght@0,400;0,600;0,800;0,900;1,900&family=Overpass+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: highway-signage dark UI. Thin rules instead of cards, square corners, one big feed column + rail. */
+:root{
+  --bg:#121316; --bg-2:#17181C; --ink:#EDEBE4; --ink-2:#A8A59C; --ink-3:#85827A;
+  --rule:#2B2D33; --rule-2:#3A3C44; --video:#0A0B0D;
+  --yellow:#FFCC1A; --yellow-2:#FFE070; --pink:#FF5470; --sign:#0B6B3A; --white:#FFFFFF;
+  --f-display:'Overpass', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono:'Overpass Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --r:3px;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-display);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--yellow)} a:hover{color:var(--yellow-2)}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
+.mono{font-family:var(--f-mono)}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:20px}
+[hidden]{display:none!important}
+
+/* header */
+.top{border-bottom:1px solid var(--rule);position:sticky;top:0;background:var(--bg);z-index:10}
+.nav{min-height:64px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 24px}
+.nav-l{display:flex;flex-wrap:wrap;align-items:center;gap:4px 32px}
+.brand{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--ink);padding:10px 0}
+.brand b{font-weight:900;font-style:italic;font-size:24px;letter-spacing:.5px;text-transform:uppercase}
+.tabs{display:flex;gap:24px}
+.tabs a{color:var(--ink-2);text-decoration:none;font-weight:600;padding:20px 0 18px;border-bottom:2px solid transparent}
+.tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--yellow)}
+.tabs a .mono{color:var(--pink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 18px;border-radius:var(--r);font-weight:800;font-size:14px;letter-spacing:.7px;text-transform:uppercase;text-decoration:none;cursor:pointer;border:1.5px solid transparent}
+.btn-y{background:var(--yellow);color:var(--bg)} .btn-y:hover{background:var(--yellow-2);color:var(--bg)}
+.btn-p{background:var(--pink);color:var(--bg)}
+.btn-o{background:transparent;border-color:var(--rule-2);color:var(--ink)} .btn-o:hover{border-color:var(--ink-2);color:var(--ink)}
+
+.ticker{border-bottom:1px solid var(--rule);background:var(--bg-2);overflow:hidden}
+.ticker p{margin:0;padding:10px 0;white-space:nowrap;font-family:var(--f-mono);font-size:12px;color:var(--ink-2);letter-spacing:.4px;display:inline-block;animation:roll 45s linear infinite;padding-left:100%}
+.ticker .live{color:var(--pink);font-weight:600}
+@keyframes roll{to{transform:translateX(-100%)}}
+@media (prefers-reduced-motion:reduce){.ticker p{animation:none;padding-left:20px}}
+
+main{padding-block:40px 72px}
+.hero{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 40px;padding-bottom:32px;border-bottom:1px solid var(--rule)}
+h1{margin:0;font-weight:900;font-size:clamp(34px,5.2vw,60px);line-height:.98;letter-spacing:-1px;text-transform:uppercase;text-wrap:balance}
+h1 em{font-style:normal;color:var(--yellow)}
+.lede{margin:0;color:var(--ink-2);max-width:380px}
+
+.cols{display:flex;flex-wrap:wrap;gap:40px;padding-top:32px;align-items:flex-start}
+.feed{flex:999 1 600px;min-width:0;display:flex;flex-direction:column;gap:20px}
+.rail{flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:40px}
+
+/* player */
+.player{position:relative;aspect-ratio:16/9;max-width:100%;background:var(--video);border-radius:4px;overflow:hidden}
+.player.tall{aspect-ratio:auto;height:min(640px,80vh)}
+.player iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--video)}
+.facade{position:absolute;inset:0;width:100%;height:100%;border:0;padding:0;background:var(--video) center/cover no-repeat;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.facade::before{content:"";position:absolute;inset:0;background:linear-gradient(transparent 40%,rgba(10,11,13,.85))}
+.facade .play{position:relative;width:76px;height:76px;border-radius:50%;border:2px solid var(--ink);background:rgba(10,11,13,.55);display:flex;align-items:center;justify-content:center;transition:transform .15s}
+.facade:hover .play{transform:scale(1.06);background:var(--pink);border-color:var(--pink)}
+.corner{position:absolute;width:20px;height:20px;border-color:rgba(237,235,228,.6);border-style:solid;border-width:0;pointer-events:none}
+.c1{top:16px;left:16px;border-top-width:2px;border-left-width:2px}.c2{top:16px;right:16px;border-top-width:2px;border-right-width:2px}
+.c3{bottom:16px;left:16px;border-bottom-width:2px;border-left-width:2px}.c4{bottom:16px;right:16px;border-bottom-width:2px;border-right-width:2px}
+.hud{position:absolute;font-family:var(--f-mono);font-size:13px;color:var(--ink);pointer-events:none;z-index:1}
+.hud.tl{top:24px;left:48px}.hud.tr{top:24px;right:48px}.hud.bl{bottom:24px;left:48px;color:var(--ink-2);font-size:12px}
+.hud .dot{color:var(--pink)}
+.offsite{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px}
+.offsite p{margin:0;color:var(--ink-2);max-width:360px}
+
+.sign{display:inline-block;background:var(--sign);color:var(--white);padding:7px 12px 5px;border-radius:var(--r);box-shadow:inset 0 0 0 2px var(--sign),inset 0 0 0 3.5px var(--white);font-weight:800;font-size:14px;text-decoration:none;line-height:1.2}
+a.sign:hover{color:var(--white);filter:brightness(1.15)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;font-family:var(--f-mono);font-size:12px;color:var(--ink-2);letter-spacing:.4px;text-transform:uppercase}
+.meta a{color:var(--ink-2)}
+.who{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px 32px}
+.who-l{display:flex;flex-direction:column;gap:8px;min-width:0}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-family:var(--f-mono);font-size:11px;font-weight:600;letter-spacing:.8px;padding:4px 8px 3px;border-radius:2px;border:1px solid var(--rule-2);color:var(--ink-2)}
+.tag.y{color:var(--yellow);border-color:var(--yellow)} .tag.p{color:var(--pink);border-color:var(--pink)}
+h2.name{margin:0;font-weight:900;font-size:clamp(30px,4vw,40px);line-height:1;letter-spacing:-.5px;text-wrap:balance}
+.sub{color:var(--ink-2)}
+.rage{display:flex;flex-direction:column;gap:8px;width:220px;max-width:100%}
+.rage-h{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:12px;color:var(--ink-2);letter-spacing:.6px}
+.rage-h b{color:var(--ink);font-weight:400}
+.segs{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+.seg{height:14px;border-radius:1px;background:var(--rule)}
+.seg.on{background:var(--yellow)} .seg.hot{background:var(--pink)}
+.quote{margin:0;font-size:22px;line-height:1.4;font-weight:600;max-width:720px}
+.flags{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 32px;border-top:1px solid var(--rule);margin:0;padding:0;list-style:none}
+.flags li{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--rule);line-height:1.4}
+.flags .n{font-family:var(--f-mono);color:var(--pink);font-size:13px;padding-top:2px}
+.bio{margin:0;color:var(--ink-2)} .bio .mono{font-size:12px;letter-spacing:.6px}
+.swipe{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.swipe .btn{min-height:60px;font-size:15px;justify-content:space-between;padding:0 20px}
+.swipe .k{font-family:var(--f-mono);font-weight:400}
+.toast{border-radius:var(--r);padding:16px 20px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.toast strong{display:block;font-weight:900;font-size:19px;text-transform:uppercase}
+.toast.match{background:var(--yellow);color:var(--bg)}
+.toast.match .btn{background:var(--bg);color:var(--yellow)}
+.toast.saved{border:1.5px solid var(--yellow)} .toast.saved strong{color:var(--yellow)}
+
+/* rail */
+.rail-h{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:12px;border-bottom:2px solid var(--ink)}
+.rail-h h3{margin:0;font-weight:900;font-size:18px;text-transform:uppercase;letter-spacing:.4px}
+.rail-h span{font-family:var(--f-mono);font-size:12px;color:var(--ink-2)}
+.board{list-style:none;margin:0;padding:0}
+.board button{width:100%;display:flex;align-items:center;gap:14px;padding:14px 0;border:0;border-bottom:1px solid var(--rule);background:none;text-align:left;cursor:pointer}
+.board button:hover .t{color:var(--yellow)}
+.board .r{font-family:var(--f-mono);font-size:22px;color:var(--yellow);width:30px;flex:none}
+.board .m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.board .t{font-weight:800}
+.board .s{font-size:14px;color:var(--ink-2)}
+.board .v{font-family:var(--f-mono);font-size:13px;color:var(--pink)}
+.zones{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.stub{display:flex;border:1.5px solid var(--rule-2);border-radius:var(--r)}
+.stub-l{flex:1;padding:18px;display:flex;flex-direction:column;gap:6px;border-right:1.5px dashed var(--rule-2)}
+.stub-l .k{font-family:var(--f-mono);font-size:11px;letter-spacing:1px;color:var(--yellow)}
+.stub-l b{font-weight:800;font-size:18px;line-height:1.2}
+.stub-l span{color:var(--ink-2);font-size:14px}
+.stub a{writing-mode:vertical-rl;display:flex;align-items:center;justify-content:center;padding:12px 14px;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none}
+
+/* profile */
+.back{font-family:var(--f-mono);font-size:13px;text-decoration:none;letter-spacing:.4px}
+.p-head{display:flex;flex-wrap:wrap;gap:24px 48px;align-items:flex-end;justify-content:space-between;padding-bottom:32px;border-bottom:2px solid var(--ink)}
+.p-head .l{display:flex;flex-direction:column;gap:12px;max-width:720px}
+.p-head h1{font-size:clamp(40px,6vw,72px);line-height:.95}
+.p-head .about{margin:0;font-size:20px;line-height:1.45;font-weight:600}
+.p-cta{display:flex;flex-direction:column;gap:10px;width:300px;max-width:100%}
+.p-cta .btn{min-height:60px;font-size:15px}
+.p-cta small{font-size:13px;color:var(--ink-3)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));border-bottom:1px solid var(--rule)}
+.stat{padding:4px 0 24px;display:flex;flex-direction:column;gap:4px}
+.stat b{font-family:var(--f-mono);font-weight:400;font-size:40px;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:14px;color:var(--ink-2)}
+.habitat{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:32px 24px}
+.clip{display:flex;flex-direction:column;gap:10px}
+.clip .player{aspect-ratio:16/9}
+.clip .row{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.clip .row b{font-weight:800}
+.clip .row span{font-family:var(--f-mono);font-size:13px;color:var(--pink);white-space:nowrap}
+.clip p{margin:0;color:var(--ink-2);line-height:1.45}
+
+/* post */
+.narrow{max-width:720px;margin:0 auto}
+.form{display:flex;flex-direction:column;gap:32px}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:14px;min-width:0}
+legend{font-family:var(--f-mono);font-size:12px;letter-spacing:.8px;color:var(--ink-2);padding:0;margin-bottom:14px}
+.seg2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1.5px solid var(--rule-2);border-radius:var(--r)}
+.seg2 button{min-height:48px;border:0;background:transparent;color:var(--ink-2);font-size:14px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;cursor:pointer}
+.seg2 button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.field{display:flex;flex-direction:column;gap:10px}
+.field label,.lbl{font-weight:800}
+.input{min-height:52px;padding:4px 14px 0;border-radius:var(--r);border:1.5px solid var(--rule-2);background:var(--bg-2);color:var(--ink);font-size:16px;width:100%}
+textarea.input{padding:14px;resize:vertical;line-height:1.45;min-height:110px}
+.input::placeholder{color:#6F6D67}
+.hint{font-family:var(--f-mono);font-size:14px;color:var(--ink-3)}
+.hint.ok{color:var(--yellow)} .hint.bad{color:var(--pink)}
+.drop{border:1.5px dashed var(--rule-2);border-radius:var(--r);padding:36px 20px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;cursor:pointer}
+.drop span{color:var(--ink-2);font-size:14px}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.choice{text-align:left;display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:var(--r);cursor:pointer;background:transparent;border:1.5px solid var(--rule-2)}
+.choice b{font-weight:800}
+.choice span{font-size:14px;opacity:.8;line-height:1.4}
+.choice[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:44px;padding:4px 14px 0;border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;background:transparent;border:1.5px solid var(--rule-2)}
+.chip[aria-pressed="true"]{background:var(--pink);color:var(--bg);border-color:var(--pink)}
+.rate{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:3px}
+.rate button{min-height:44px;border:0;border-radius:1px;cursor:pointer;background:var(--rule)}
+.rate button.on{background:var(--yellow)} .rate button.hot{background:var(--pink)}
+.rules{border-top:1px solid var(--rule);padding-top:20px}
+.rules legend{color:var(--yellow);padding-right:12px}
+.check{display:flex;gap:12px;align-items:flex-start;line-height:1.4}
+.check input{width:20px;height:20px;accent-color:var(--yellow);margin:0;flex:none}
+.done{display:flex;flex-direction:column;align-items:flex-start;gap:16px}
+.done h2{margin:0;font-weight:900;font-size:36px;line-height:1;text-transform:uppercase}
+.done p{margin:0;color:var(--ink-2);font-size:18px}
+.row-btns{display:flex;flex-wrap:wrap;gap:10px}
+
+footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:10px;color:var(--ink-3);font-size:13px}
+footer .credits{font-family:var(--f-mono);font-size:12px;line-height:1.7}
+footer .credits a{color:var(--ink-2)}
+
+@media (max-width:560px){
+  .tabs{gap:18px}
+  .hud.tl,.hud.bl{left:24px}.hud.tr{right:24px}
+  .quote{font-size:19px}
+  .player.off{aspect-ratio:auto;min-height:320px}
+  .offsite{padding-top:56px}
+  .swipe .btn{padding:0 14px;font-size:14px}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <nav class="wrap nav" aria-label="Main">
+    <div class="nav-l">
+      <a class="brand" href="#feed" aria-label="Swerve home">
+        <svg width="22" height="28" viewBox="0 0 22 28" aria-hidden="true"><path d="M5 27 V17 C5 12, 15 12, 15 7 V5" stroke="#FFCC1A" stroke-width="4" fill="none"/><path d="M9 7 L15 0 L21 7 Z" fill="#FFCC1A"/></svg>
+        <b>Swerve</b>
+      </a>
+      <div class="tabs">
+        <a href="#feed" data-tab="feed">Feed</a>
+        <a href="#profile" data-tab="profile">Most Wanted</a>
+        <a href="#crushes" data-tab="crushes">Crushes <span class="mono" id="crushCount">0</span></a>
+      </div>
+    </div>
+    <a class="btn btn-y" href="#post">Post a clip</a>
+  </nav>
+</header>
+
+<div class="ticker" aria-label="Traffic report">
+  <p><span class="live">● LIVE TRAFFIC REPORT</span>&nbsp;&nbsp; FORBES: ATL RANKS #16 FOR WORST DRIVERS (WE CAN DO BETTER) &nbsp;/&nbsp; I-285 AIRPORT TUNNEL: DONUTS REPORTED &nbsp;/&nbsp; GA-400 @ HOLCOMB BRIDGE: TURKEY SITUATION RESOLVED &nbsp;/&nbsp; BUFORD HWY: ALL CLEAR (SUSPICIOUS) &nbsp;/&nbsp; SPAGHETTI JUNCTION: SPAGHETTI</p>
+</div>
+
+<!-- FEED -->
+<main class="wrap" id="view-feed">
+  <section class="hero">
+    <h1>Find someone who <em>drives you crazy.</em></h1>
+    <p class="lede">Atlanta's worst drivers, rated by the people stuck behind them. Swipe on the sighting. Match if they've claimed it.</p>
+  </section>
+  <div class="cols">
+    <article class="feed" id="card" aria-live="polite"></article>
+    <aside class="rail">
+      <section>
+        <div class="rail-h"><h3>Most Wanted</h3><span>BY RAGE</span></div>
+        <ol class="board" id="board"></ol>
+      </section>
+      <section>
+        <div class="rail-h"><h3>Hot zones</h3><span>ATL</span></div>
+        <div class="zones">
+          <span class="sign">Spaghetti Junction</span><span class="sign">The Connector</span><span class="sign">Buford Hwy</span><span class="sign">Moreland Ave</span><span class="sign">GA-400</span>
+        </div>
+      </section>
+      <section class="stub">
+        <div class="stub-l">
+          <span class="k">LIVE STAND-UP</span>
+          <b>[COMEDIAN NAME] at [VENUE]</b>
+          <span>[SHOW DATE] · Bring your worst footage.</span>
+        </div>
+        <a href="#feed">Tickets</a>
+      </section>
+    </aside>
+  </div>
+  <footer>
+    <span>Swerve is parody and a test build. Film as a passenger or from a mounted dashcam, never while driving.</span>
+    <div class="credits" id="credits"></div>
+  </footer>
+</main>
+
+<!-- PROFILE -->
+<main class="wrap" id="view-profile" hidden>
+  <div style="display:flex;flex-direction:column;gap:32px">
+    <a class="back" href="#feed">← BACK TO FEED</a>
+    <section class="p-head">
+      <div class="l">
+        <span class="tag y" style="align-self:flex-start">SAMPLE PROFILE · FICTIONAL</span>
+        <h1>Lane Change Larry</h1>
+        <span class="sub" style="font-size:18px">@NoSignalNeeded · Dodge Charger, loud · Decatur</span>
+        <p class="about">Looking for a ride-or-die. Mostly die. Into long drives, short merges, and anyone who can keep up on 285.</p>
+      </div>
+      <div class="p-cta">
+        <button class="btn btn-p" id="crushBtn" type="button">Merge right</button>
+        <small>This is what a profile looks like once a driver claims their clips. DMs open at red lights only.</small>
+      </div>
+    </section>
+    <section class="stats">
+      <div class="stat"><b style="color:var(--pink)">0</b><span>Turn signals used</span></div>
+      <div class="stat"><b style="color:var(--yellow)">2</b><span>Lanes occupied at once</span></div>
+      <div class="stat"><b>3</b><span>Clips claimed</span></div>
+      <div class="stat"><b>9.0</b><span>Avg rage rating</span></div>
+    </section>
+    <section class="habitat">
+      <span class="mono" style="font-size:12px;letter-spacing:.8px;color:var(--ink-2);margin-right:6px">USUAL HABITAT</span>
+      <span class="sign">Spaghetti Junction</span><span class="sign">I-20 EB</span><span class="sign">Ponce de Leon</span>
+    </section>
+    <section style="display:flex;flex-direction:column;gap:16px">
+      <div class="rail-h"><h3>The rest of the Most Wanted list</h3><span>PLAYABLE</span></div>
+      <div class="grid" id="grid"></div>
+    </section>
+  </div>
+</main>
+
+<!-- CRUSHES -->
+<main class="wrap" id="view-crushes" hidden>
+  <div class="narrow" style="display:flex;flex-direction:column;gap:24px">
+    <div style="padding-bottom:28px;border-bottom:2px solid var(--ink)">
+      <h1>Your crushes</h1>
+      <p class="lede" style="max-width:none;margin-top:10px">Everyone you merged right on. Claimed drivers are matches. Unclaimed ones turn into matches if they ever sign up.</p>
+    </div>
+    <ol class="board" id="crushList"></ol>
+    <p id="crushEmpty" class="sub">Nobody yet. Go merge right on someone in the <a href="#feed">feed</a>.</p>
+  </div>
+</main>
+
+<!-- POST -->
+<main class="wrap" id="view-post" hidden>
+  <div class="narrow" style="display:flex;flex-direction:column;gap:32px">
+    <div style="display:flex;flex-direction:column;gap:10px;padding-bottom:28px;border-bottom:2px solid var(--ink)">
+      <h1>Play matchmaker.</h1>
+      <p class="lede" style="max-width:none;font-size:18px">Saw someone drive like they're single? Post the clip. Somebody out there is into it.</p>
+    </div>
+
+    <form class="form" id="postForm" novalidate>
+      <fieldset>
+        <legend>01 &nbsp;THE CLIP</legend>
+        <div class="seg2" role="group" aria-label="Clip source">
+          <button type="button" id="tabLink" aria-pressed="true">Paste a link</button>
+          <button type="button" id="tabFile" aria-pressed="false">Upload a file</button>
+        </div>
+        <div class="field" id="linkPane">
+          <label for="link">Link to the post</label>
+          <input class="input mono" id="link" type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=…" autocomplete="off">
+          <span class="hint" id="linkHint">Paste a YouTube or Reddit link to preview it here. TikTok and Instagram come next.</span>
+          <div class="player" id="linkPreview" hidden></div>
+        </div>
+        <label class="drop" id="filePane" hidden for="file">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FFCC1A" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M12 16 V4 M7 9 L12 4 L17 9"/><path d="M4 15 V20 H20 V15"/></svg>
+          <b>Drop a dashcam or passenger clip</b>
+          <span>MP4 or MOV · 60 seconds max</span>
+          <input id="file" type="file" accept="video/*" style="font-size:14px;color:var(--ink-2);max-width:100%;margin-top:6px">
+          <video id="filePreview" controls playsinline hidden style="width:100%;margin-top:12px;border-radius:4px;background:var(--video)"></video>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>02 &nbsp;WHO'S DRIVING</legend>
+        <div class="choices">
+          <button type="button" class="choice" data-who="other" aria-pressed="true"><b>Someone else</b><span>Posts as an anonymous sighting. Plates and faces get blurred.</span></button>
+          <button type="button" class="choice" data-who="me" aria-pressed="false"><b>It's me, and I'm single</b><span>Creates your dating profile. People who merge right can match with you.</span></button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>03 &nbsp;THE DETAILS</legend>
+        <div class="field">
+          <label for="spot">Where in Atlanta?</label>
+          <input class="input" id="spot" type="text" list="spots" placeholder="Spaghetti Junction, the Connector, Buford Hwy…">
+          <datalist id="spots"><option value="I-285 · Spaghetti Junction"><option value="Downtown Connector"><option value="GA-400"><option value="Buford Hwy"><option value="Moreland Ave"><option value="Peachtree St"><option value="I-20"><option value="Ponce de Leon Ave"></datalist>
+        </div>
+        <div class="field">
+          <span class="lbl" id="movesLbl">Their signature move</span>
+          <div class="chips" role="group" aria-labelledby="movesLbl" id="moves"></div>
+        </div>
+        <div class="field">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="lbl" id="rateLbl">Rage rating</span><span class="mono" style="color:var(--pink)" id="rateVal">7/10</span></div>
+          <div class="rate" role="group" aria-labelledby="rateLbl" id="rate"></div>
+        </div>
+        <div class="field">
+          <label for="cap">Their dating-profile caption</label>
+          <textarea class="input" id="cap" rows="3" placeholder="Merged across four lanes to make the exit he already missed."></textarea>
+        </div>
+      </fieldset>
+
+      <fieldset class="rules">
+        <legend>FUNNY, NOT FELONY</legend>
+        <label class="check"><input type="checkbox" checked disabled><span>Plates and faces are blurred automatically <span style="color:var(--ink-3)">(always on)</span></span></label>
+        <label class="check"><input type="checkbox" id="r1"><span>Filmed by a passenger or a mounted dashcam</span></label>
+        <label class="check"><input type="checkbox" id="r2"><span>No names, addresses or tagging their socials</span></label>
+        <span class="hint bad" id="rulesHint" hidden>Check both boxes to post.</span>
+      </fieldset>
+
+      <button class="btn btn-y" type="submit" style="min-height:60px;font-size:16px;font-weight:900">Post to the feed</button>
+    </form>
+
+    <div class="done" id="done" hidden>
+      <span class="mono" style="color:var(--yellow);font-size:12px;letter-spacing:1px">● IN REVIEW</span>
+      <h2>Clip submitted.</h2>
+      <p>We're blurring plates and faces now. It goes live once a moderator stops laughing. (Test build: nothing was actually uploaded.)</p>
+      <div class="row-btns">
+        <a class="btn btn-p" href="#feed">Back to the feed</a>
+        <button class="btn btn-o" type="button" id="again">Post another</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function(){
+  // ---------- data: real, publicly posted clips. Drivers are never named; personas are nicknames for the behavior.
+  var D = [
+    { id:"0421", title:"The Runway Tunnel Drift Crew", ride:"Assorted, all sideways", spot:"I-285 EB · Airport runway tunnel", date:"MAR 2020",
+      kind:"link", outlet:"WSB-TV", url:"https://www.wsbtv.com/news/local/wild-video-shows-drivers-doing-donuts-i-285-shutting-down-traffic/4DBJZWE6JFDHJDNBZIY3JLCHOE/",
+      credit:"WSB-TV Atlanta (video via @GAFollowers)", rage:9, atl:true,
+      caption:"Shut down I-285 under the Hartsfield-Jackson runway on a Saturday night to do donuts. Fireworks were involved. Phones were out the windows.",
+      flags:["Loves an audience","Will literally stop traffic for you","Leaves the second the cops show up (commitment issues)"],
+      bio:"Unclaimed. Clayton County PD would also like to meet them." },
+    { id:"0419", title:"The GA-400 Turkey", ride:"On foot (talons)", spot:"GA-400 · Holcomb Bridge Rd", date:"DEC 2018",
+      kind:"link", outlet:"FOX 5 Atlanta", url:"https://www.fox5atlanta.com/news/drivers-stop-cold-turkey-on-georgia-400",
+      credit:"FOX 5 Atlanta (viewer video)", rage:2, atl:true,
+      caption:"Wandered onto 400 during the morning commute and stopped traffic cold turkey. Two drivers got out to wrangle it off the road.",
+      flags:["Stops traffic just by existing","Free-range, no commitments","Has never once used a turn signal"],
+      bio:"Unclaimed. Probably can't type." },
+    { id:"0414", title:"Last-Second Exit Camaro", ride:"Camaro convertible", spot:"I-69 SB · Memphis", date:"DASHCAM",
+      kind:"youtube", yt:"yyW83sjXFR4", url:"https://www.youtube.com/watch?v=yyW83sjXFR4",
+      credit:"YouTube (via Motorious)", rage:9, atl:false,
+      caption:"Tailgated in the left lane, cut off a semi, crossed the gore stripes for the exit, and met the crash barrier. The exit won.",
+      flags:["Decisive (eventually)","Doesn't let a missed exit stop him","Convertible, so you'll hear him coming"],
+      bio:"Unclaimed. Currently between fenders." },
+    { id:"0408", title:"The Right-Lane Passer", ride:"Impatient sedan", spot:"Stop-and-go traffic", date:"FEB 2018",
+      kind:"youtube", yt:"Vbf4Vt4kfx0", url:"https://www.youtube.com/watch?v=Vbf4Vt4kfx0",
+      credit:"YouTube / AKcamaro2017 (via Jalopnik)", rage:8, atl:false,
+      caption:"Decided the whole traffic jam didn't apply to him and passed everyone on the right. It went wrong immediately.",
+      flags:["Main-character energy","Thinks rules are suggestions","Very punctual (in theory)"],
+      bio:"Unclaimed. Last seen learning a lesson." },
+    { id:"0402", title:"The Maverick Brake-Checker", ride:"Ford Maverick", spot:"Highway, left lane", date:"AUG 2026",
+      kind:"reddit", reddit:"r/dashcams/comments/1vfozn1/very_near_miss_on_my_way_home_from_work", url:"https://www.reddit.com/r/dashcams/comments/1vfozn1/very_near_miss_on_my_way_home_from_work/",
+      credit:"Reddit r/dashcams (via Ford Authority)", rage:8, atl:false,
+      caption:"Nearly clipped the cammer, brake-checked them to a full stop, then didn't even take the exit.",
+      flags:["Will make you stop for him","Compact truck, big feelings","Keeps you guessing (on purpose)"],
+      bio:"Unclaimed. Brakes harder than he loves." },
+    { id:"0396", title:"The Overcorrection", ride:"The dashcam car, actually", spot:"Highway · Galt, CA", date:"SEP 2022",
+      kind:"reddit", reddit:"r/IdiotsInCars/comments/x1slfp/how_not_to_react_after_getting_cut_off", url:"https://www.reddit.com/r/IdiotsInCars/comments/x1slfp/how_not_to_react_after_getting_cut_off/",
+      credit:"Reddit r/IdiotsInCars (via Carscoops)", rage:10, atl:false,
+      caption:"Got cut off, chased the guy up an exit ramp at full send, and ended up in a fence. The guy who cut him off got away clean.",
+      flags:["Passionate","Never lets anything go","Filmed his own downfall in 1080p"],
+      bio:"Unclaimed. The fence has filed a complaint." },
+    { id:"0390", title:"The South Carolina Sampler", ride:"Various, all bad", spot:"Columbia, SC area", date:"MAR 2015",
+      kind:"youtube", yt:"jf_vnK62L4Y", start:378, url:"https://www.youtube.com/watch?v=jf_vnK62L4Y&t=378s",
+      credit:"YouTube / HaloMasterMind117 (via Jalopnik)", rage:7, atl:false,
+      caption:"Three years of one guy's dashcam in Columbia, cut into one supercut. Starts at Jalopnik's favorite moment.",
+      flags:["Brings friends","Road-trip ready","Has opinions about the left lane"],
+      bio:"Unclaimed. Visiting from up I-20." },
+    { id:"0399", title:"Lane Change Larry", ride:"Dodge Charger, loud", spot:"I-285 · Spaghetti Junction", date:"SAMPLE",
+      kind:"sample", url:"#profile", credit:"Fictional sample profile", rage:9, atl:true, claimed:true,
+      caption:"Crossed four lanes to make an exit he had already missed. Then honked at me.",
+      flags:["Blinkers are optional DLC","Horn is his love language","Knows every shortcut (they are all shoulders)"],
+      bio:"Looking for a ride-or-die. Mostly die." }
+  ];
+
+  // Lead with a clip that plays inline, then alternate Atlanta and out-of-town.
+  var ORDER = ["0414","0419","0408","0421","0396","0402","0390","0399"];
+  D.sort(function(a,b){ return ORDER.indexOf(a.id) - ORDER.indexOf(b.id); });
+  var state = { idx:0, crushes:[], result:"", last:null, who:"other", moves:["No signal"], rage:7, tab:"link" };
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+  var playSvg = '<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 L20 12 L7 20 Z" fill="#EDEBE4"/></svg>';
+  var corners = '<span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>';
+
+  // ---------- embeds
+  function ytSrc(id, start, autoplay){
+    return "https://www.youtube-nocookie.com/embed/" + id + "?rel=0&modestbranding=1&playsinline=1" + (start ? "&start=" + start : "") + (autoplay ? "&autoplay=1" : "");
+  }
+  function redditSrc(path){ return "https://embed.reddit.com/" + path + "/?embed=true&theme=dark&showmedia=true&showtitle=false"; }
+  function iframe(src, title){
+    return '<iframe src="' + esc(src) + '" title="' + esc(title) + '" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+  }
+  // Click-to-load facade: no third-party player loads until someone presses play.
+  function playerHTML(d, opts){
+    opts = opts || {};
+    var hud = opts.hud === false ? "" : corners +
+      '<span class="hud tl"><span class="dot">●</span> REC&nbsp; ' + esc(d.date) + '</span>' +
+      '<span class="hud tr">' + esc(sourceName(d)) + '</span>';
+    if (d.kind === "youtube"){
+      return '<div class="player" data-id="' + d.id + '">' + hud +
+        '<button class="facade" type="button" data-play="' + d.id + '" aria-label="Play ' + esc(d.title) + '" style="background-image:url(https://i.ytimg.com/vi/' + d.yt + '/hqdefault.jpg)"><span class="play">' + playSvg + '</span></button></div>';
+    }
+    if (d.kind === "reddit"){
+      return '<div class="player" data-id="' + d.id + '">' + hud +
+        '<button class="facade" type="button" data-play="' + d.id + '" aria-label="Load ' + esc(d.title) + ' from Reddit"><span class="play">' + playSvg + '</span></button>' +
+        '<span class="hud bl">Loads the Reddit post player</span></div>';
+    }
+    if (d.kind === "link"){
+      return '<div class="player off">' + hud + '<div class="offsite"><a class="btn btn-o" href="' + esc(d.url) + '" target="_blank" rel="noopener">Watch on ' + esc(d.outlet) + ' ↗</a><p>News station video can\'t be embedded. In the real build we\'d swap this for the uploader\'s own TikTok or YouTube post.</p></div></div>';
+    }
+    return '<div class="player">' + hud + '<div class="offsite"><span class="play" style="width:76px;height:76px;border-radius:50%;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center">' + playSvg + '</span><p>[SAMPLE CLIP] Larry is a made-up profile that shows how matching works.</p></div></div>';
+  }
+  function sourceName(d){ return d.kind === "youtube" ? "YOUTUBE" : d.kind === "reddit" ? "REDDIT" : d.kind === "link" ? d.outlet.toUpperCase() : "DEMO"; }
+  function activate(id){
+    var d = D.filter(function(x){ return x.id === id; })[0]; if (!d) return;
+    document.querySelectorAll('.player[data-id="' + id + '"]').forEach(function(box){
+      if (!box.querySelector("[data-play]")) return;
+      if (d.kind === "youtube") box.innerHTML = iframe(ytSrc(d.yt, d.start, true), d.title);
+      else { box.classList.add("tall"); box.innerHTML = iframe(redditSrc(d.reddit), d.title); }
+    });
+  }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest("[data-play]"); if (b){ activate(b.getAttribute("data-play")); }
+  });
+
+  // ---------- feed
+  function renderCard(){
+    var d = D[state.idx % D.length];
+    var segs = ""; for (var i=0;i<10;i++){ segs += '<span class="seg' + (i < d.rage ? (i >= 7 ? " hot" : " on") : "") + '"></span>'; }
+    var tags = d.claimed
+      ? '<span class="tag y">✓ SAMPLE PROFILE · CLAIMED</span>'
+      : '<span class="tag">ANONYMOUS SIGHTING · UNCLAIMED</span>' + (d.atl ? "" : '<span class="tag p">OUT-OF-TOWN TRANSFER</span>');
+    var flags = d.flags.map(function(f,i){ return '<li><span class="n">0' + (i+1) + '</span><span>' + esc(f) + '</span></li>'; }).join("");
+    var toast = "";
+    if (state.result === "match") toast = '<div class="toast match"><div><strong>It\'s a match</strong>' + esc(state.last) + ' merged into your lane. No signal, obviously.</div><a class="btn" href="#profile">Open profile</a></div>';
+    if (state.result === "saved") toast = '<div class="toast saved"><div><strong>Saved to crushes</strong>' + esc(state.last) + ' hasn\'t claimed this clip yet. If they ever do, it\'s a match.</div></div>';
+    $("card").innerHTML =
+      playerHTML(d) +
+      '<div class="meta"><span>Sighting #' + d.id + '</span><span>Clip: ' + (d.kind === "sample" ? esc(d.credit) : '<a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.credit) + '</a>') + '</span><span>' + ((state.idx % D.length) + 1) + ' of ' + D.length + '</span></div>' +
+      '<div class="who"><div class="who-l"><div class="tags">' + tags + '</div><h2 class="name">' + esc(d.title) + '</h2><span class="sub">' + (d.claimed ? "@NoSignalNeeded" : "unclaimed") + ' · ' + esc(d.ride) + '</span><span class="sign" style="align-self:flex-start">' + esc(d.spot) + '</span></div>' +
+      '<div class="rage"><div class="rage-h"><span>RAGE</span><b>' + d.rage + '/10</b></div><div class="segs" role="img" aria-label="Rage ' + d.rage + ' out of 10">' + segs + '</div></div></div>' +
+      '<p class="quote">“' + esc(d.caption) + '”</p>' +
+      '<ul class="flags">' + flags + '</ul>' +
+      '<p class="bio"><span class="mono">BIO&nbsp; </span>' + esc(d.bio) + '</p>' +
+      '<div class="swipe"><button class="btn btn-o" type="button" id="nope"><span class="k">←</span>Swerve left<span style="width:14px"></span></button><button class="btn btn-p" type="button" id="merge"><span style="width:14px"></span>Merge right<span class="k">→</span></button></div>' +
+      toast;
+    $("nope").onclick = function(){ advance(false); };
+    $("merge").onclick = function(){ advance(true); };
+  }
+  function advance(merged){
+    var d = D[state.idx % D.length];
+    state.result = merged ? (d.claimed ? "match" : "saved") : "";
+    if (merged){ state.last = d.title; if (state.crushes.indexOf(d.id) === -1) state.crushes.push(d.id); }
+    state.idx++;
+    renderCard(); renderCrushes();
+    var top = $("card").getBoundingClientRect().top + window.scrollY - 90;
+    if (window.scrollY > top) window.scrollTo({ top: top, behavior: "smooth" });
+  }
+  function jumpTo(id){
+    for (var i=0;i<D.length;i++){ if (D[i].id === id){ state.idx = i; state.result = ""; } }
+    location.hash = "#feed"; renderCard();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function renderBoard(){
+    var rows = D.filter(function(d){ return !d.claimed; }).slice().sort(function(a,b){ return b.rage - a.rage; }).slice(0,5);
+    $("board").innerHTML = rows.map(function(d,i){
+      return '<li><button type="button" data-jump="' + d.id + '"><span class="r">0' + (i+1) + '</span><span class="m"><span class="t">' + esc(d.title) + '</span><span class="s">' + esc(d.spot) + '</span></span><span class="v">' + d.rage + '/10</span></button></li>';
+    }).join("");
+  }
+  document.addEventListener("click", function(e){ var b = e.target.closest("[data-jump]"); if (b) jumpTo(b.getAttribute("data-jump")); });
+
+  function renderCrushes(){
+    $("crushCount").textContent = state.crushes.length;
+    var list = state.crushes.map(function(id){ return D.filter(function(d){ return d.id === id; })[0]; });
+    $("crushEmpty").hidden = list.length > 0;
+    $("crushList").innerHTML = list.map(function(d){
+      return '<li><button type="button" data-jump="' + d.id + '"><span class="r" style="font-size:14px;width:auto">' + (d.claimed ? "MATCH" : "WAITING") + '</span><span class="m"><span class="t">' + esc(d.title) + '</span><span class="s">' + esc(d.spot) + '</span></span><span class="v">' + d.rage + '/10</span></button></li>';
+    }).join("");
+  }
+
+  // ---------- profile grid: every playable clip
+  function renderGrid(){
+    $("grid").innerHTML = D.filter(function(d){ return !d.claimed; }).map(function(d){
+      return '<article class="clip">' + playerHTML(d, { hud:false }) +
+        '<div class="row"><b>' + esc(d.title) + '</b><span>' + d.rage + '/10</span></div>' +
+        '<p>' + esc(d.caption) + '</p>' +
+        '<span class="mono" style="font-size:12px;color:var(--ink-3)">' + esc(d.spot.toUpperCase()) + ' · <a href="' + esc(d.url) + '" target="_blank" rel="noopener" style="color:var(--ink-3)">' + esc(d.credit) + '</a></span></article>';
+    }).join("");
+  }
+  var crushed = false;
+  $("crushBtn").onclick = function(){
+    crushed = !crushed;
+    this.textContent = crushed ? "Crush sent · buckle up" : "Merge right";
+    this.className = crushed ? "btn btn-o" : "btn btn-p";
+    if (crushed && state.crushes.indexOf("0399") === -1) state.crushes.push("0399");
+    if (!crushed) state.crushes = state.crushes.filter(function(x){ return x !== "0399"; });
+    renderCrushes();
+  };
+
+  // ---------- post form
+  var MOVES = ["No signal","Brake-check","Shoulder sprint","Zipper denier","Phone in hand","Two lanes at once","Full meltdown"];
+  function renderMoves(){
+    $("moves").innerHTML = MOVES.map(function(m){ return '<button type="button" class="chip" data-move="' + esc(m) + '" aria-pressed="' + (state.moves.indexOf(m) !== -1) + '">' + esc(m) + '</button>'; }).join("");
+  }
+  $("moves").addEventListener("click", function(e){
+    var b = e.target.closest("[data-move]"); if (!b) return;
+    var m = b.getAttribute("data-move"), i = state.moves.indexOf(m);
+    if (i === -1) state.moves.push(m); else state.moves.splice(i,1);
+    renderMoves();
+  });
+  function renderRate(){
+    var h = ""; for (var i=1;i<=10;i++){ h += '<button type="button" data-rate="' + i + '" aria-label="Rage ' + i + ' of 10" class="' + (i <= state.rage ? (i > 7 ? "hot" : "on") : "") + '"></button>'; }
+    $("rate").innerHTML = h; $("rateVal").textContent = state.rage + "/10";
+  }
+  $("rate").addEventListener("click", function(e){ var b = e.target.closest("[data-rate]"); if (b){ state.rage = +b.getAttribute("data-rate"); renderRate(); } });
+  document.querySelectorAll(".choice").forEach(function(b){
+    b.addEventListener("click", function(){ state.who = b.getAttribute("data-who"); document.querySelectorAll(".choice").forEach(function(x){ x.setAttribute("aria-pressed", x === b); }); });
+  });
+  function setTab(t){
+    state.tab = t;
+    $("tabLink").setAttribute("aria-pressed", t === "link"); $("tabFile").setAttribute("aria-pressed", t === "file");
+    $("linkPane").hidden = t !== "link"; $("filePane").hidden = t !== "file";
+  }
+  $("tabLink").onclick = function(){ setTab("link"); };
+  $("tabFile").onclick = function(){ setTab("file"); };
+
+  // Paste-a-link: detect platform and show a live embed preview for YouTube and Reddit.
+  function parseLink(u){
+    var m;
+    if ((m = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/i))) return { p:"YouTube", src: ytSrc(m[1], 0, false) };
+    if ((m = u.match(/reddit\.com\/(r\/[\w]+\/comments\/[\w]+(?:\/[\w-]+)?)/i))) return { p:"Reddit", src: redditSrc(m[1]), tall:true };
+    if (/tiktok\.com/i.test(u)) return { p:"TikTok" };
+    if (/instagram\.com/i.test(u)) return { p:"Instagram" };
+    if (/(twitter|x)\.com/i.test(u)) return { p:"X" };
+    if (/facebook\.com|fb\.watch/i.test(u)) return { p:"Facebook" };
+    return null;
+  }
+  $("link").addEventListener("input", function(){
+    var u = this.value.trim(), hint = $("linkHint"), box = $("linkPreview");
+    if (!u){ hint.className = "hint"; hint.textContent = "Paste a YouTube or Reddit link to preview it here. TikTok and Instagram come next."; box.hidden = true; box.innerHTML = ""; return; }
+    var r = parseLink(u);
+    if (!r){ hint.className = "hint bad"; hint.textContent = "Can't read that link. Paste the post's own URL."; box.hidden = true; box.innerHTML = ""; return; }
+    if (!r.src){ hint.className = "hint ok"; hint.textContent = "✓ " + r.p + " link recognized. Preview for " + r.p + " isn't wired up in this test build yet."; box.hidden = true; box.innerHTML = ""; return; }
+    hint.className = "hint ok"; hint.textContent = "✓ " + r.p + " post found. It plays from the source, so the original stays theirs.";
+    box.hidden = false; box.className = "player" + (r.tall ? " tall" : ""); box.innerHTML = iframe(r.src, "Preview");
+  });
+  $("file").addEventListener("change", function(){
+    var f = this.files && this.files[0], v = $("filePreview");
+    if (!f){ v.hidden = true; return; }
+    v.src = URL.createObjectURL(f); v.hidden = false;
+  });
+  $("postForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    if (!$("r1").checked || !$("r2").checked){ $("rulesHint").hidden = false; return; }
+    $("rulesHint").hidden = true; this.hidden = true; $("done").hidden = false; window.scrollTo({ top:0 });
+  });
+  $("again").onclick = function(){ $("postForm").reset(); $("postForm").hidden = false; $("done").hidden = true; $("linkPreview").hidden = true; $("linkPreview").innerHTML = ""; $("filePreview").hidden = true; state.moves = ["No signal"]; state.rage = 7; renderMoves(); renderRate(); setTab("link"); };
+
+  // ---------- routing
+  var VIEWS = ["feed","profile","crushes","post"];
+  function route(){
+    var v = (location.hash || "#feed").slice(1); if (VIEWS.indexOf(v) === -1) v = "feed";
+    VIEWS.forEach(function(x){ $("view-" + x).hidden = x !== v; });
+    document.querySelectorAll("[data-tab]").forEach(function(a){ if (a.getAttribute("data-tab") === v) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
+    if (v !== "feed") window.scrollTo({ top:0 });
+  }
+  window.addEventListener("hashchange", route);
+  document.addEventListener("keydown", function(e){
+    if ($("view-feed").hidden || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (e.key === "ArrowLeft") advance(false);
+    if (e.key === "ArrowRight") advance(true);
+  });
+
+  $("credits").innerHTML = "CLIPS: " + D.filter(function(d){ return d.kind !== "sample"; }).map(function(d){ return '<a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.credit) + '</a>'; }).join(" &nbsp;/&nbsp; ") + ". All clips belong to their owners and play from the original post.";
+
+  renderCard(); renderBoard(); renderCrushes(); renderGrid(); renderMoves(); renderRate(); route();
+})();
+</script>
+</body>
+</html>
